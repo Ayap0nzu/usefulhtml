@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Task Picker</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #f4f4f4;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .picker-section {
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 2rem;
+        }
+
+        #chosen-task {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3436;
+            margin: 1rem 0;
+            min-height: 1.6em;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 1rem;
+        }
+
+        input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 15px;
+            transition: 0.2s;
+        }
+
+        .btn-pick {
+            background: #6c5ce7;
+            color: white;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+
+        .btn-add {
+            background: #00b894;
+            color: white;
+        }
+
+
+        .btn-export {
+            background: #0984e3;
+            color: white;
+        }
+
+        .btn-import {
+            background: #e84393;
+            color: white;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .actions button {
+            margin-left: 5px;
+            font-size: 0.8rem;
+        }
+
+        .btn-delete {
+            background: #ff7675;
+            color: white;
+        }
+
+        .btn-edit {
+            background: #fdcb6e;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <div class="picker-section">
+            <h2>What should I do?</h2>
+            <div id="chosen-task">Click the button to decide!</div>
+            <div id="timer-display"></div>
+            <button class="btn-pick" onclick="pickRandomTask()">Pick a Random Task</button>
+        </div>
+
+        <h3>My Tasks</h3>
+        <div class="input-group">
+            <input type="text" id="task-input" placeholder="Add a new task...">
+            <button class="btn-add" onclick="addTask()">Add</button>
+        </div>
+
+        <div class="input-group">
+            <button class="btn-export" onclick="exportTasks()">Export (.txt)</button>
+            <button class="btn-import" onclick="document.getElementById('file-input').click()">Import (.txt)</button>
+            <input type="file" id="file-input" accept=".txt" style="display: none;" onchange="importTasks(event)">
+        </div>
+        <ul id="task-list"></ul>
+    </div>
+
+    <script>
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let lastPickedIndex = localStorage.getItem('lastIndex') ? parseInt(localStorage.getItem('lastIndex')) : null;
+
+        function saveAndRender() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            const list = document.getElementById('task-list');
+            list.innerHTML = '';
+            tasks.forEach((task, index) => {
+                list.innerHTML += `
+            <li>
+                <span>${task}</span>
+                <div class="actions">
+                    <button class="btn-edit" onclick="editTask(${index})">Edit</button>
+                    <button class="btn-delete" onclick="deleteTask(${index})">Delete</button>
+                </div>
+            </li>`;
+            });
+        }
+
+        function addTask() {
+            const input = document.getElementById('task-input');
+            if (input.value.trim()) {
+                tasks.push(input.value.trim());
+                input.value = '';
+                saveAndRender();
+            }
+        }
+
+        function deleteTask(index) {
+            tasks.splice(index, 1);
+            lastPickedIndex = null; // Reset so logic doesn't break if index is gone
+            localStorage.removeItem('lastIndex');
+            saveAndRender();
+        }
+
+        function editTask(index) {
+            const newVal = prompt("Edit your task:", tasks[index]);
+            if (newVal !== null && newVal.trim() !== "") {
+                tasks[index] = newVal.trim();
+                saveAndRender();
+            }
+        }
+
+        function pickRandomTask() {
+            const display = document.getElementById('chosen-task');
+
+            if (tasks.length === 0) {
+                display.innerText = "Your list is empty!";
+                return;
+            }
+
+            if (tasks.length === 1) {
+                display.innerText = "✨ " + tasks[0] + " ✨";
+                return;
+            }
+
+            // Logic to prevent repeat
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * tasks.length);
+            } while (randomIndex === lastPickedIndex);
+
+            lastPickedIndex = randomIndex; // Update the record for next time
+            localStorage.setItem('lastIndex', lastPickedIndex);
+            const finalTask = tasks[randomIndex];
+
+
+            // Visual animation shuffle
+            let counter = 0;
+            const interval = setInterval(() => {
+                const shuffleTask = tasks[Math.floor(Math.random() * tasks.length)];
+                display.innerText = shuffleTask;
+                counter++;
+                if (counter > 10) {
+                    clearInterval(interval);
+                    display.innerText = "✨ " + finalTask + " ✨";
+                }
+            }, 50);
+        }
+
+        function exportTasks() {
+            if (tasks.length === 0) {
+                alert("No tasks to export.");
+                return;
+            }
+            const textContent = tasks.join('\n');
+            const blob = new Blob([textContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tasks.txt';
+            document.body.appendChild(a);
+            a.click();
+
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importTasks(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const content = e.target.result;
+                const importedTasks = content.split(/\r?\n/)
+                    .map(task => task.trim())
+                    .filter(task => task.length > 0);
+
+                // Merge existing tasks with imported tasks and remove duplicates
+                tasks = [...new Set([...tasks, ...importedTasks])];
+                saveAndRender();
+                event.target.value = ""; // Reset file input so the same file can be imported again if needed
+            };
+            reader.readAsText(file);
+        }
+
+
+        saveAndRender();
+
+
+    </script>
+</body>
+
+</html>
